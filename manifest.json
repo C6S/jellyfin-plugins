@@ -1,0 +1,21 @@
+[
+  {
+    "guid": "cb207969-cc84-4f02-bfd5-25cab26d681d",
+    "name": "AccessCheck",
+    "description": "Validates user credentials and library access for external auth subrequests.",
+    "overview": "Validates user credentials and library access for external auth subrequests.",
+    "owner": "C6S",
+    "category": "General",
+    "imageUrl": "",
+    "versions": [
+      {
+        "version": "1.0.0.0",
+        "targetAbi": "12.1.0.0",
+        "timestamp": "2026-10-07T00:32:11.0000000Z",
+        "changelog": "",
+        "checksum": "af53541b60f248cd7af13b62cf3f9030",
+        "sourceUrl": "https://github.com/C6S/jellyfin-plugins/releases/download/AccessCheck/v1.0.0/AccessCheck_1.0.0.0.zip"
+      }
+    ]
+  }
+]

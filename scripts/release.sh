@@ -44,6 +44,7 @@ fi
 manifest="$pages/manifest.json"
 [ -f "$manifest" ] || echo '[]' >"$manifest"
 touch "$pages/.nojekyll"
+"$(dirname "$0")/pages-index.sh" "https://github.com/$GITHUB_REPOSITORY" >"$pages/index.html"
 
 # Add the plugin if it's new, refresh its details, and put this version first
 # (replacing a previous build of the same version).
@@ -56,7 +57,7 @@ jq --argjson info "$info" --argjson entry "$entry" '
 ' "$manifest" >"$work/manifest.json"
 mv "$work/manifest.json" "$manifest"
 
-git -C "$pages" add manifest.json .nojekyll
+git -C "$pages" add manifest.json .nojekyll index.html
 git -C "$pages" \
     -c user.name="github-actions[bot]" \
     -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \

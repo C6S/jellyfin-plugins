@@ -1,0 +1,13 @@
+# Build output
+bin/
+obj/
+TestResults/
+
+# devenv and direnv state
+.devenv/
+.devenv.flake.nix
+.direnv/
+devenv.local.nix
+
+# Local plugin builds from before releases moved to GitHub
+dist/

@@ -1,0 +1,34 @@
+# Jellyfin with the plugin, behind nginx configured as in the README.
+# Run by .github/workflows/ci.yml, which sets the variables below.
+name: accesscheck-it
+
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:${JELLYFIN_TAG:?}
+    volumes:
+      - ${PLUGIN_DIR:?}:/config/plugins/AccessCheck
+      - ${MEDIA_DIR:?}:/media:ro
+    ports:
+      - 127.0.0.1:8096:8096
+    networks:
+      test:
+        ipv4_address: 172.30.0.10
+
+  nginx:
+    build: nginx
+    volumes:
+      - ${MEDIA_DIR:?}:/srv/media:ro
+    ports:
+      - 127.0.0.1:8080:80
+    networks:
+      test:
+        ipv4_address: 172.30.0.20
+    depends_on:
+      - jellyfin
+
+networks:
+  test:
+    name: accesscheck-it
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24

@@ -1,0 +1,123 @@
+name: AccessCheck
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - AccessCheck/**
+      - scripts/**
+      - global.json
+      - .github/workflows/accesscheck.yml
+    # Path filters don't apply to tags: a release tag always runs.
+    tags: ["AccessCheck/v*"]
+  pull_request:
+    paths:
+      - AccessCheck/**
+      - scripts/**
+      - global.json
+      - .github/workflows/accesscheck.yml
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: AccessCheck
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # MinVer needs the tags
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet test --project tests/
+      - run: dotnet build src/ -c Release
+
+  # Real Jellyfin with the plugin, behind nginx configured as in the README.
+  integration:
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The oldest supported release and the newest 12.x.
+        jellyfin: ["12.1", "12"]
+    env:
+      JELLYFIN_TAG: ${{ matrix.jellyfin }}
+      COMPOSE: docker compose -f integration/compose.yaml
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Set paths
+        run: |
+          {
+            echo "PLUGIN_DIR=$RUNNER_TEMP/plugin"
+            echo "MEDIA_DIR=$RUNNER_TEMP/media"
+            echo "STATE=$RUNNER_TEMP/state.env"
+          } >> "$GITHUB_ENV"
+
+      - name: Build the plugin
+        run: |
+          dotnet publish src/ -c Release -o "$PLUGIN_DIR"
+          # envsubst takes the variable names literally.
+          # shellcheck disable=SC2016
+          PLUGIN=AccessCheck VERSION=0.0.0.0 TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%S.0000000Z)" \
+            envsubst '${PLUGIN} ${VERSION} ${TIMESTAMP}' < meta.json.tpl > "$PLUGIN_DIR/meta.json"
+
+      - name: Start Jellyfin and nginx
+        run: |
+          integration/media.sh "$MEDIA_DIR"
+          $COMPOSE up -d --build
+
+      - name: Set up Jellyfin
+        run: integration/setup.sh
+
+      - name: Test
+        run: integration/test.sh
+
+      # Full logs need a login to read; annotations are public.
+      - name: Logs
+        if: always()
+        run: |
+          $COMPOSE logs --no-color > "$RUNNER_TEMP/compose.log"
+          cat "$RUNNER_TEMP/compose.log"
+          if [ "${{ job.status }}" != success ]; then
+            grep -E '\[(ERR|FTL)\]|\[(error|crit|alert|emerg)\]' "$RUNNER_TEMP/compose.log" | head -n 10 \
+              | while IFS= read -r line; do echo "::warning title=Container log::$line"; done
+          fi
+
+      - name: Stop
+        if: always()
+        run: $COMPOSE down -v
+
+  release:
+    needs: integration
+    if: startsWith(github.ref, 'refs/tags/AccessCheck/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # the release and the gh-pages branch
+    # One manifest update at a time, across plugins.
+    concurrency: gh-pages
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/release.sh AccessCheck "${GITHUB_REF_NAME#AccessCheck/v}"

@@ -1,0 +1,14 @@
+build:
+    dotnet build src/
+    @just _tag-cache
+
+test:
+    dotnet test --project tests/
+    @just _tag-cache
+
+clean:
+    rm -rf src/bin src/obj tests/bin tests/obj
+
+# Mark build output so backup tools skip it (https://bford.info/cachedir/).
+_tag-cache:
+    for dir in src/bin src/obj tests/bin tests/obj; do [ -d "$dir" ] && printf 'Signature: 8a477f597d28d172789f06886806bc55\n' > "$dir/CACHEDIR.TAG" || true; done
